@@ -233,3 +233,4 @@ async function destroyExpiredDarkRooms() {
 
 setInterval(destroyExpiredDarkRooms, 1000)
 
+module.exports = app;
