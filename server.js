@@ -3,7 +3,11 @@ const express = require('express')
 const WebSocket = require('ws');
 const cors = require('cors');
 
-const serviceAccount = require("./thedarkroom-1009c-firebase-adminsdk-dbe4w-817f5422c7.json");
+let serviceAccount = process.env.SERVICE_ACCOUNT
+if (process.env.NODE_ENV === 'development') {
+    serviceAccount = require("./thedarkroom-1009c-firebase-adminsdk-dbe4w-817f5422c7.json");
+}
+
 const utils = require("./utils.js")
 
 admin.initializeApp({
