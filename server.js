@@ -3,7 +3,7 @@ const express = require('express')
 const WebSocket = require('ws');
 const cors = require('cors');
 
-let serviceAccount = process.env.SERVICE_ACCOUNT
+let serviceAccount = JSON.parse(process.env.SERVICE_ACCOUNT)
 console.log(process.env.NODE_ENV)
 if (process.env.NODE_ENV === 'development') {
     serviceAccount = require("./thedarkroom-1009c-firebase-adminsdk-dbe4w-817f5422c7.json");
