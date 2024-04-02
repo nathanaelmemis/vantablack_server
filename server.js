@@ -3,10 +3,10 @@ const express = require('express')
 const WebSocket = require('ws');
 const cors = require('cors');
 
-let serviceAccount = JSON.parse(process.env.SERVICE_ACCOUNT)
+let serviceAccount = require("./thedarkroom-1009c-firebase-adminsdk-dbe4w-817f5422c7.json");
 console.log(process.env.NODE_ENV)
-if (process.env.NODE_ENV === 'development') {
-    serviceAccount = require("./thedarkroom-1009c-firebase-adminsdk-dbe4w-817f5422c7.json");
+if (process.env.NODE_ENV === 'production') {
+    serviceAccount = JSON.parse(process.env.SERVICE_ACCOUNT)
 }
 
 const utils = require("./utils.js")
@@ -104,6 +104,16 @@ app.post('/destroy_room', async (req, res) => {
 
     res.sendStatus(await utils.destroyDarkRoom(admin, code))
 })
+
+app.get('/.well-known/pki-validation/EAB198129F9258EC52AB0EB3B1914636.txt', (req, res) => {
+    res.sendFile(__dirname + '/.well-known/pki-validation/EAB198129F9258EC52AB0EB3B1914636.txt', (error) => {
+        if (error) {
+            console.log('Error occured while sending Auth File.', error)
+        } else {
+            console.log('Auth File sent.')
+        }
+    })
+}) 
 
 const server = app.listen(3000, () => {
     console.log('Express server listening on port 3000');
