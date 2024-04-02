@@ -1,6 +1,7 @@
 const admin = require("firebase-admin");
 const express = require('express')
 const WebSocket = require('ws');
+const https = require('https');
 const cors = require('cors');
 
 let serviceAccount = null
@@ -117,9 +118,13 @@ app.get('/.well-known/pki-validation/EAB198129F9258EC52AB0EB3B1914636.txt', (req
     })
 }) 
 
-const server = app.listen(3000, () => {
-    console.log('Express server listening on port 3000');
-});
+const serverOptions = {};
+
+const server = https.createServer(serverOptions, app);
+
+// const server = app.listen(3000, () => {
+//     console.log('Express server listening on port 3000');
+// });
 
 const wss = new WebSocket.Server({ server });
 
