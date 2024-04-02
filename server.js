@@ -24,14 +24,7 @@ const app = express()
 // app.use(cors({
 //     origin: 'https://m3ow23.github.io'
 // }));
-
-app.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', 'https://m3ow23.github.io');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
-    res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-    next();
-});
-
+app.use(cors())
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -128,13 +121,7 @@ app.get('/.well-known/pki-validation/EAB198129F9258EC52AB0EB3B1914636.txt', (req
     })
 }) 
 
-const serverOptions = {};
-
-const server = https.createServer(serverOptions, app);
-
-server.listen(3000, () => {
-    console.log('Server is listening on port 3000');
-});
+const server = https.createServer(app);
 
 const wss = new WebSocket.Server({ server });
 
@@ -233,6 +220,10 @@ wss.on('connection', (ws) => {
     ws.on('close', () => {
         console.log('WebSocket connection closed');
     });
+});
+
+server.listen(3000, () => {
+    console.log('Server is listening on port 3000');
 });
 
 /**
