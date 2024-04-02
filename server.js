@@ -122,9 +122,9 @@ const serverOptions = {};
 
 const server = https.createServer(serverOptions, app);
 
-// const server = app.listen(3000, () => {
-//     console.log('Express server listening on port 3000');
-// });
+server.listen(3000, () => {
+    console.log('Server is listening on port 3000');
+});
 
 const wss = new WebSocket.Server({ server });
 
