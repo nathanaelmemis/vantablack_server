@@ -21,9 +21,17 @@ admin.initializeApp({
 
 const app = express()
 
-app.use(cors({
-    origin: 'https://m3ow23.github.io'
-}));
+// app.use(cors({
+//     origin: 'https://m3ow23.github.io'
+// }));
+
+app.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', 'https://m3ow23.github.io');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+    res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+    next();
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
