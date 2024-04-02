@@ -121,7 +121,11 @@ app.get('/.well-known/pki-validation/EAB198129F9258EC52AB0EB3B1914636.txt', (req
     })
 }) 
 
-const server = https.createServer(app);
+// const server = https.createServer(app);
+
+const server = app.listen(3000, () => {
+    console.log('Server is listening on port 3000');
+});
 
 const wss = new WebSocket.Server({ server });
 
@@ -222,9 +226,7 @@ wss.on('connection', (ws) => {
     });
 });
 
-server.listen(3000, () => {
-    console.log('Server is listening on port 3000');
-});
+
 
 /**
  * global ticker
