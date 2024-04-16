@@ -8,6 +8,7 @@ console.log('Initializing server...')
 
 let serviceAccount = null
 console.log('Server is in', process.env.NODE_ENV)
+console.log(process.env.SERVICE_ACCOUNT)
 if (process.env.NODE_ENV === 'production') {
     serviceAccount = JSON.parse(process.env.SERVICE_ACCOUNT)
 } else {
