@@ -6,15 +6,28 @@ const utils = require("./utils.js")
 
 console.log('Initializing server...')
 
-let serviceAccount = null
+let serviceAccount = {
+    "type": "service_account",
+    "project_id": "vantablack-b23fc",
+    "private_key_id": "42c5677f6f201a507235781f4bc772155c235708",
+    "private_key": process.env.PRIVATE_KEY,
+    "client_email": "firebase-adminsdk-yfzjw@vantablack-b23fc.iam.gserviceaccount.com",
+    "client_id": "112311645770133282283",
+    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    "token_uri": "https://oauth2.googleapis.com/token",
+    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+    "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-yfzjw%40vantablack-b23fc.iam.gserviceaccount.com",
+    "universe_domain": "googleapis.com"
+  }
+  
 console.log('Server is in', process.env.NODE_ENV)
 if (process.env.NODE_ENV === 'production') {
-    serviceAccount = JSON.parse(process.env.SERVICE_ACCOUNT)
+    serviceAccount['private_key'] = process.env.PRIVATE_KEY
 } else {
-    serviceAccount = require("./vantablack-b23fc-firebase-adminsdk-yfzjw-42c5677f6f.json");
+    serviceAccount['private_key'] = require("./vantablack-b23fc-firebase-adminsdk-yfzjw-42c5677f6f.json").private_key;
 }
 
-console.log(typeof process.env.SERVICE_ACCOUNT, typeof serviceAccount)
+console.log(typeof process.env.PRIVATE_KEY, typeof serviceAccount)
 
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
