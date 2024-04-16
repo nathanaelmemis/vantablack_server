@@ -10,7 +10,6 @@ let serviceAccount = {
     "type": "service_account",
     "project_id": "vantablack-b23fc",
     "private_key_id": "42c5677f6f201a507235781f4bc772155c235708",
-    "private_key": process.env.PRIVATE_KEY,
     "client_email": "firebase-adminsdk-yfzjw@vantablack-b23fc.iam.gserviceaccount.com",
     "client_id": "112311645770133282283",
     "auth_uri": "https://accounts.google.com/o/oauth2/auth",
@@ -22,6 +21,7 @@ let serviceAccount = {
   
 console.log('Server is in', process.env.NODE_ENV)
 if (process.env.NODE_ENV === 'production') {
+    console.log(process.env.PRIVATE_KEY)
     serviceAccount['private_key'] = process.env.PRIVATE_KEY
 } else {
     serviceAccount['private_key'] = require("./vantablack-b23fc-firebase-adminsdk-yfzjw-42c5677f6f.json").private_key;
