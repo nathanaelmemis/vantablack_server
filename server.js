@@ -43,7 +43,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.get('/', (req, res) => {
-    res.send(JSON.stringify({private_key:serviceAccount['private_key']}))
+    res.send('meow')
 })
 
 /**
