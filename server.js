@@ -14,7 +14,7 @@ if (process.env.NODE_ENV === 'production') {
     serviceAccount = require("./vantablack-b23fc-firebase-adminsdk-yfzjw-42c5677f6f.json");
 }
 
-console.log(serviceAccount)
+console.log(typeof process.env.SERVICE_ACCOUNT, typeof serviceAccount)
 
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
