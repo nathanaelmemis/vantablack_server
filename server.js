@@ -1,22 +1,22 @@
 const admin = require("firebase-admin");
 const express = require('express')
-const WebSocket = require('ws');
-const https = require('https');
 const cors = require('cors');
+const r = require('./response.js')
+const utils = require("./utils.js")
+
+console.log('Initializing server...')
 
 let serviceAccount = null
-console.log(process.env.NODE_ENV)
+console.log('Server is in', process.env.NODE_ENV)
 if (process.env.NODE_ENV === 'production') {
     serviceAccount = JSON.parse(process.env.SERVICE_ACCOUNT)
 } else {
-    serviceAccount = require("./thedarkroom-1009c-firebase-adminsdk-dbe4w-817f5422c7.json");
+    serviceAccount = require("./vantablack-b23fc-firebase-adminsdk-yfzjw-42c5677f6f.json");
 }
 
-const utils = require("./utils.js")
-
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  databaseURL: "https://thedarkroom-1009c-default-rtdb.firebaseio.com"
+    credential: admin.credential.cert(serviceAccount),
+    databaseURL: "https://vantablack-b23fc-default-rtdb.firebaseio.com/"
 });
 
 const app = express()
@@ -28,234 +28,192 @@ app.use(cors())
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+/**
+ * @todo add room expiration checking
+ * 
+ * @param {String} darkRoomCode
+ * @returns {object} includes auth token for Firebase access
+ * @throws {invalidData} if creds are invalid
+ * @throws {internalServerErrorOccured} if unknown error occured
+ */
 app.post('/login', async (req, res) => {
+    const darkRoomCode = req.body.darkRoomCode;
+
+    // data validation
+    if (!utils.isCleanCode(darkRoomCode)) {
+        r.invalidData(res)
+        return
+    }
+
+    utils.apiLog(req, `Requesting login to: ${darkRoomCode}`)
+
     try {
-        const code = req.body.code;
-
-        if (!utils.isCleanCode(code)) {
-            res.sendStatus(400)
-            return
-        }
-
-        console.log('Requesting login to', code);
-
-        const snapshot = await admin.database().ref(`/dark_rooms/${code}`).once('value');
-        console.log('Firebase responded with:', snapshot.val())
-
+        // check on firebase if dark room code exists
+        const snapshot = await admin.database().ref(`/dark_rooms/${darkRoomCode}`).once('value');
         const firebaseData = snapshot.val()
+        utils.apiLog(req, `Firebase responded with: ${typeof firebaseData}`)
 
+        // if data not exist then send error response
         if (!firebaseData) {
-            res.sendStatus(400)
+            r.invalidData(res)
             return
         }
 
-        const path = `/dark_rooms/${code}`
+        // check timestamps validity
+        if (Date.now() - firebaseData.lastActivityTimestamp > firebaseData.inactiveDaysLimit
+            || (firebaseData.timeToDestroy && firebaseData.timeToDestroy - Date.now() < 1000)) {
+            utils.destroyDarkRoom(req, admin, darkRoomCode)
+
+            r.invalidData(res)
+            return
+        }
+
+        // update last activity timestamp
+        const path = `/dark_rooms/${darkRoomCode}`
         const updates = {};
         updates[`${path}/lastActivityTimestamp`] = Date.now();
         await admin.database().ref().update(updates);
 
-        res.sendStatus(200)
+        // generate JWT token
+        const clientToken = await admin.auth().createCustomToken(darkRoomCode)
+
+        // respond with auth token
+        r.success(res, { authToken: clientToken })
     } catch (error) {
-        console.error('Error occurred:', error);
-        res.sendStatus(500);
+        utils.apiLog(req, `An Error occurred: ${error}`)
+        r.internalServerErrorOccured(res)
     }
 })
 
+/**
+ * @param {String} darkRoomCode
+ * @param {Number} inactiveDaysLimit
+ * @param {String} autoDestroyTimer
+ * @returns {object} includes auth token for Firebase access
+ * @throws {invalidData} if creds are invalid
+ * @throws {internalServerErrorOccured} if unknown error occured
+ */
 app.post('/create_room', async (req, res) => {
     const data = req.body;
 
-    console.log('Creating dark room:', data.code)
+    utils.apiLog(req, `Creating dark room: ${data.darkRoomCode}`)
 
     // check if data is clean
     if (!utils.isCleanData(data, 'create_room')) {
-        console.log('Data is tampered:', data)
-        res.sendStatus(400)
+        utils.apiLog(req, `Data is tampered: ${data}`)
+        r.invalidData(res)
         return
     }
 
     try {
-        // check if room with same code exists
-        const snapshot = await admin.database().ref(`/dark_rooms/${data.code}`).once('value');
-        console.log('Firebase responded with:', snapshot.val());
-
-        const parsedAutoDestroyTimer = utils.parseTimeToMiliseconds(data.autoDestroyTimer)
-        const parsedInactiveDaysLimit = utils.parseDayToMiliseconds(data.inactiveDaysLimit)
+        // check if room with same darkRoomCode exists
+        const snapshot = await admin.database().ref(`/dark_rooms/${data.darkRoomCode}`).once('value');
+        utils.apiLog(req, `Firebase responded with: ${typeof snapshot.val()}`)
 
         // Return generatedDarkRoomCode if snapshot value is null (room doesn't exist), otherwise false
         if (snapshot.val()) {
-            res.sendStatus(400)
-        } else {
-            const dateNow = Date.now() 
-            admin.database().ref(`/dark_rooms/${data.code}`).set({
-                lastActivityTimestamp: dateNow,
-                inactiveDaysLimit: parsedInactiveDaysLimit,
-                timeToDestroy: parsedAutoDestroyTimer > 0 ? parsedAutoDestroyTimer + dateNow : 0
-            });
-                
-            res.sendStatus(200)
-        }
-    } catch (error) {
-        console.error('Error creating dark room:', error);
-        res.sendStatus(400); // Return false in case of error
-    }
-})
-
-app.post('/destroy_room', async (req, res) => {
-    const code = req.body.code;
-
-    if (!utils.isCleanCode(code)) {
-        res.status(400).send('Invalid Dark Room Code.')
-        return
-    }
-
-    res.sendStatus(await utils.destroyDarkRoom(admin, code))
-})
-
-app.get('/.well-known/pki-validation/EAB198129F9258EC52AB0EB3B1914636.txt', (req, res) => {
-    res.sendFile(__dirname + '/.well-known/pki-validation/EAB198129F9258EC52AB0EB3B1914636.txt', (error) => {
-        if (error) {
-            console.log('Error occured while sending Auth File.', error)
-        } else {
-            console.log('Auth File sent.')
-        }
-    })
-}) 
-
-// const server = https.createServer(app);
-
-const server = app.listen(3000, () => {
-    console.log('Server is listening on port 3000');
-});
-
-const wss = new WebSocket.Server({ server });
-
-wss.on('connection', (ws) => {
-    console.log('New WebSocket connection');
-
-    // Handle messages received from clients
-    ws.on('message', (message) => {
-        // this catches injections attempts
-        // JSON parsing throws error on invalid strings
-        let data = null
-        try {
-            data = JSON.parse(message)
-        } catch {
-            console.log('Possible injection attack detected.')
-
-            ws.send(JSON.stringify({
-                message:'Invalid Request.',
-                status: 400
-            }))
-
-            ws.close()
+            r.invalidData(res)
             return
         }
-        
-        console.log('Received message:', data);
 
-        if(data.action == 'startDataListener') {
-            // check if data is clean
-            if (!utils.isCleanData(data, 'start_data_listener')) {
-                console.log(`Invalid data received from ${data.action}: ${data}`)
-                ws.send(JSON.stringify({
-                    message:'Invalid Request.',
-                    status: 400
-                }))
-                return
-            }
+        // ready data to be stored
+        const parsedAutoDestroyTimer = utils.parseTimeToMiliseconds(data.autoDestroyTimer)
+        const parsedInactiveDaysLimit = utils.parseDayToMiliseconds(data.inactiveDaysLimit)
+        const dateNow = Date.now()
+        const timeToDestroy = parsedAutoDestroyTimer > 0 ? parsedAutoDestroyTimer + dateNow : 0
 
-            const dbRef = admin.database().ref(`/dark_rooms/${data.darkRoomCode}`);
-            function handleValue (snapshot) {
-                databaseData = snapshot.val();
-                console.log(`Detected changes: ${data.darkRoomCode}`);
+        // create new dark room in database
+        admin.database().ref(`/dark_rooms/${data.darkRoomCode}`).set({
+            lastActivityTimestamp: dateNow,
+            inactiveDaysLimit: parsedInactiveDaysLimit,
+            timeToDestroy: timeToDestroy,
+            dataHash: utils.hash(data.darkRoomCode + timeToDestroy.toString() + serviceAccount.private_key)
+        });
 
-                if (databaseData === null) {
-                    dbRef.off('value', handleValue);
-                    ws.send(JSON.stringify({ action: 'destroy' }));
-                    return
-                }
+        // generate JWT token
+        const clientToken = await admin.auth().createCustomToken(data.darkRoomCode)
 
-                ws.send(JSON.stringify({
-                    messages: databaseData.messages,
-                    timeToDestroy: databaseData.timeToDestroy
-                }));
-            }
-            dbRef.on('value', handleValue)
-        } else if (data.action == 'sendMessage') {
-            if (!utils.isCleanData(data, 'send_message')) {
-                console.log(`Invalid data received from ${data.action}: ${data}`)
-                ws.send(JSON.stringify({
-                    message:'Invalid Request.',
-                    status: 400
-                }))
-                return
-            }
+        // respond with auth token
+        r.success(res, { authToken: clientToken })
+    } catch (error) {
+        utils.apiLog(req, `Error creating dark room: ${error}`)
+        r.internalServerErrorOccured(res)
+    }
 
-            const path = `/dark_rooms/${data.darkRoomCode}`
-            const dbRef = admin.database().ref(path);
-            // check if path exists
-            dbRef.once('value', (snapshot) => {
-                // send error if not exist
-                // this should only happen if the user tries to send messages manually on invalid paths
-                if (snapshot.val() === null) {
-                    ws.send({
-                        message:'Invalid Request.',
-                        status: 400
-                    })
-
-                    return
-                }
-
-                const newPostKey = dbRef.child('messages').push().key;
-                const updates = {};
-                updates[`${path}/lastActivityTimestamp`] = Date.now();
-                updates[`${path}/messages/` + newPostKey] = data.message;
-                admin.database().ref().update(updates);
-            })
-        } else {
-            ws.send(JSON.stringify({
-                message:'Invalid Request.',
-                status: 400
-            }))
-        }
-    });
-
-    // Handle connection close
-    ws.on('close', () => {
-        console.log('WebSocket connection closed');
-    });
-});
-
-
-
-/**
- * global ticker
- * this destroys expired dark rooms every second
- */
-let isTickerRunning = false
-
-let allDarkRooms = null
-admin.database().ref('/dark_rooms').on('value', (snapshot) => {
-    allDarkRooms = snapshot.val();
+    // call database cleanup function
+    utils.cleanupDatabase(admin)
 })
 
-async function destroyExpiredDarkRooms() {
-    if (isTickerRunning
-        || allDarkRooms === null) {
-        return
+/**
+ * @param {String} authToken
+ * @returns {Number} status code returned from destroying the room
+ * @throws {invalidData} if creds are invalid
+ */
+app.post('/destroy_room', async (req, res) => {
+    try {
+        const decodedToken = await admin.auth().verifyIdToken(req.body.idToken)
+
+        const statusCode = await utils.destroyDarkRoom(req, admin, decodedToken.uid)
+
+        res.sendStatus(statusCode)
+    } catch (error) {
+        utils.apiLog(req, `Error creating dark room: ${error}`)
+        r.internalServerErrorOccured(res)
     }
+})
 
-    isTickerRunning = true
+/**
+ * @todo add room expiration checking
+ * 
+ * @param {String} message
+ * @param {object} authToken
+ * @returns {object} includes auth token for Firebase access
+ * @throws {invalidData} if creds are invalid
+ * @throws {internalServerErrorOccured} if unknown error occured
+ */
+app.post('/send_message', async (req, res) => {
+    // this catches injections attempts
+    // JSON parsing throws error on invalid strings
+    try {
+        const message = JSON.parse(req.body.message)
 
-    for (const code in allDarkRooms) {
-        const darkRoom = allDarkRooms[code]
-        await utils.validateByTimeToDestroy(darkRoom, admin, code)
-        await utils.validateByLastActivityTime(darkRoom, admin, code)
+        const decodedToken = await admin.auth().verifyIdToken(req.body.idToken)
+
+        if (utils.hash(decodedToken.uid + req.body.timeToDestroy.toString() + serviceAccount.private_key) !== req.body.dataHash) {
+            throw new Error('Data is tampered.')
+        }
+
+        // check timestamps validity
+        if (req.body.timeToDestroy !== 0 && req.body.timeToDestroy - Date.now() < 1000) {
+            utils.destroyDarkRoom(req, admin, decodedToken.uid)
+
+            r.invalidData(res)
+            return
+        }
+
+        utils.apiLog(req, `Sending message from: ${decodedToken.uid}, ${message}`)
+
+        const path = `/dark_rooms/${decodedToken.uid}`
+        const dbRef = admin.database().ref(path);
+
+        const newPostKey = dbRef.child('messages').push().key;
+        const updates = {};
+        updates[`${path}/lastActivityTimestamp`] = Date.now();
+        updates[`${path}/messages/` + newPostKey] = message;
+        admin.database().ref().update(updates);
+
+        r.success(res)
+    } catch(error) {
+        if (error instanceof SyntaxError) {
+            utils.apiLog(req, `Possible injection attack detected: ${error}`)
+        } else {
+            utils.apiLog(req, `An error occured: ${error}`)
+        }
+        
+        r.invalidData(res)
     }
+})
 
-    isTickerRunning = false
-}
-
-setInterval(destroyExpiredDarkRooms, 1000)
-
-// module.exports = app;
+app.listen(3000, () => {
+    console.log('Server is listening on port 3000');
+});

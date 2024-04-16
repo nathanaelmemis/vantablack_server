@@ -1,15 +1,19 @@
+const CryptoJS = require("crypto-js")
+const fs = require('fs');
+
 const DARK_ROOM_CODE_HASH_LENGTH = 64
 const CHARACTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+const CLEANUP_INTERVAL_MS = 2592000000 // 30 days
 
-function isCleanCode(code) {
+function isCleanCode(darkRoomCode) {
     // check if length is correct
-    if (code.length !== DARK_ROOM_CODE_HASH_LENGTH) {
+    if (darkRoomCode.length !== DARK_ROOM_CODE_HASH_LENGTH) {
           return false
     }
 
     // check if there are invalid chars
-    for (var i = 0; i < code.length; i++) {
-        const char = code.charAt(i);
+    for (var i = 0; i < darkRoomCode.length; i++) {
+        const char = darkRoomCode.charAt(i);
         if (CHARACTERS.indexOf(char) === -1) {
             return false;
         }
@@ -23,12 +27,12 @@ function isCleanData(data, route) {
 
         if (!data.hasOwnProperty('autoDestroyTimer')
             || !data.hasOwnProperty('inactiveDaysLimit')
-            || !data.hasOwnProperty('code')
+            || !data.hasOwnProperty('darkRoomCode')
             ) {
             return false
         }
 
-        if (!isCleanCode(data.code)
+        if (!isCleanCode(data.darkRoomCode)
             || isNaN(data.inactiveDaysLimit) 
             || autoDestroyTimerParts.length !== 3
             || autoDestroyTimerParts[0] > 99
@@ -56,15 +60,14 @@ function isCleanData(data, route) {
         }
 
         return true
-    } else if (route === 'send_message') {
-        if (!data.hasOwnProperty('darkRoomCode')
-            || !data.hasOwnProperty('message')  
+    } else if (route === 'destroy_room') {
+        if (!data.hasOwnProperty('darkRoomCode'
+            || !data.hasOwnProperty('authToken'))
             ) {
             return false
         }
 
-        if (!isCleanCode(data.darkRoomCode)
-            || typeof(data.message) !== 'string' ) {
+        if (!isCleanCode(data.darkRoomCode)) {
             return false
         }
 
@@ -86,41 +89,73 @@ function parseDayToMiliseconds(days) {
 /**
  * @returns 200 on successful destroy | 400 on failed destroy
  */
-async function destroyDarkRoom(admin, code) {
+async function destroyDarkRoom(req, admin, code) {
     console.log('Destroying dark room:', code);
+    apiLog(req, `Destroying dark room: ${code}`)
     
     try {
         await admin.database().ref(`/dark_rooms/${code}`).remove()
-        console.log('Successfully destroyed dark room:', code)
+        apiLog(req, `Successfully destroyed dark room: ${code}`)
         return 200
     } catch (error) {
-        console.log('Failed to destroy dark room:', code, error)
+        apiLog(req, `Failed destroyed dark room: ${code} ${error}`)
         return 400
     }
 }
 
 /**
- * @returns 200 on successful destroy | 400 on failed destroy
- * @returns false when valid by autoDestroyTimer
+ * @param {Request} req 
+ * @param {String} msg 
  */
-async function validateByTimeToDestroy(firebaseData, admin, code) {
-    if (Date.now() >= firebaseData.timeToDestroy  && firebaseData.timeToDestroy > 0) {
-        console.log('Invalid by time to destroy:', code);
-
-        return await destroyDarkRoom(admin, code)
-    }
-
-    return false
+function apiLog(req, msg) {
+    console.log(`[${req.path}]`, msg)
 }
 
-async function validateByLastActivityTime(firebaseData, admin, code) {
-    if (Date.now() - firebaseData.lastActivityTimestamp > firebaseData.inactiveDaysLimit) {
-        console.log('Invalid by last activity time:', code);
+/**
+ * This function cleanups Firebase RTDB of expired dark rooms
+ */
+async function cleanupDatabase(admin) {
+    try {
+        const lastCleanupTimestampPath = '.vantablack_server_last_cleanup_timestamp'
+        const lastCleanupTimestamp = parseInt(fs.readFileSync(lastCleanupTimestampPath, 'utf8'));
 
-        return await destroyDarkRoom(admin, code)
+        if (Date.now() - lastCleanupTimestamp < CLEANUP_INTERVAL_MS) {
+            return
+        }
+
+        console.log('[cleanupDatabase]', 'Initiating database cleanup...')
+
+        const allData = (await admin.database().ref('/dark_rooms').once('value')).val();
+
+        console.log('[cleanupDatabase]', 'Firebase responded with:', typeof allData)
+        
+        if (allData === null) {
+            return
+        }
+
+        const darkRoomsRef = admin.database().ref('/dark_rooms');
+
+        for (const darkRoomCode in allData) {
+            const darkRoom = allData[darkRoomCode]
+            if ((darkRoom.timeToDestroy && darkRoom.timeToDestroy - Date.now() < 1000)
+                || Date.now() - darkRoom.lastActivityTimestamp > darkRoom.inactiveDaysLimit) {
+                darkRoomsRef.child(darkRoomCode).set(null)
+                console.log('[cleanupDatabase]', 'Destroyed dark room:', darkRoomCode)
+            }
+        }
+
+        fs.writeFileSync(lastCleanupTimestampPath, Date.now().toString());
+    } catch (error) {
+        console.log('[cleanupDatabase]', 'Error occured while attempting database cleanup: ', error);
     }
+}
 
-    return false
+function hash(input, iteration = 1) {
+    let hashedInput = input
+    for (let i = 0; i < iteration; i++) {
+        hashedInput = CryptoJS.SHA256(hashedInput).toString(CryptoJS.enc.Hex)
+    }
+    return hashedInput
 }
 
 module.exports = {
@@ -129,7 +164,8 @@ module.exports = {
     parseTimeToMiliseconds: parseTimeToMiliseconds,
     parseDayToMiliseconds: parseDayToMiliseconds,
     destroyDarkRoom: destroyDarkRoom,
-    validateByTimeToDestroy: validateByTimeToDestroy,
-    validateByLastActivityTime: validateByLastActivityTime
+    apiLog: apiLog,
+    cleanupDatabase: cleanupDatabase,
+    hash: hash
 };
   
