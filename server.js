@@ -9,11 +9,12 @@ console.log('Initializing server...')
 let serviceAccount = null
 console.log('Server is in', process.env.NODE_ENV)
 if (process.env.NODE_ENV === 'production') {
-    console.log(JSON.parse(process.env.SERVICE_ACCOUNT))
     serviceAccount = JSON.parse(process.env.SERVICE_ACCOUNT)
 } else {
     serviceAccount = require("./vantablack-b23fc-firebase-adminsdk-yfzjw-42c5677f6f.json");
 }
+
+console.log(serviceAccount)
 
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
