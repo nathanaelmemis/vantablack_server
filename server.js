@@ -21,8 +21,7 @@ let serviceAccount = {
   
 console.log('Server is in', process.env.NODE_ENV)
 if (process.env.NODE_ENV === 'production') {
-    console.log(process.env.PRIVATE_KEY)
-    serviceAccount['private_key'] = process.env.PRIVATE_KEY
+    serviceAccount['private_key'] = JSON.parse(process.env.PRIVATE_KEY).private_key
 } else {
     serviceAccount['private_key'] = require("./vantablack-b23fc-firebase-adminsdk-yfzjw-42c5677f6f.json").private_key;
 }
@@ -44,7 +43,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.get('/', (req, res) => {
-    res.send('meow')
+    res.send(JSON.stringify({private_key:serviceAccount['private_key']}))
 })
 
 /**
