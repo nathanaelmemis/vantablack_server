@@ -8,8 +8,8 @@ console.log('Initializing server...')
 
 let serviceAccount = null
 console.log('Server is in', process.env.NODE_ENV)
-console.log(process.env.SERVICE_ACCOUNT)
 if (process.env.NODE_ENV === 'production') {
+    console.log(JSON.parse(process.env.SERVICE_ACCOUNT))
     serviceAccount = JSON.parse(process.env.SERVICE_ACCOUNT)
 } else {
     serviceAccount = require("./vantablack-b23fc-firebase-adminsdk-yfzjw-42c5677f6f.json");
@@ -22,10 +22,10 @@ admin.initializeApp({
 
 const app = express()
 
-// app.use(cors({
-//     origin: 'https://m3ow23.github.io'
-// }));
-app.use(cors())
+app.use(cors({
+    origin: 'https://m3ow23.github.io'
+}));
+// app.use(cors())
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
