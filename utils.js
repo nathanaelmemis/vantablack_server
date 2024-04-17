@@ -1,5 +1,6 @@
 const CryptoJS = require("crypto-js")
 const fs = require('fs');
+const path = require("path");
 
 const DARK_ROOM_CODE_HASH_LENGTH = 64
 const CHARACTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -116,7 +117,7 @@ function apiLog(req, msg) {
  */
 async function cleanupDatabase(admin) {
     try {
-        const lastCleanupTimestampPath = '.vantablack_server_last_cleanup_timestamp'
+        const lastCleanupTimestampPath = path.join(__dirname, '.vantablack_server_last_cleanup_timestamp')
         const lastCleanupTimestamp = parseInt(fs.readFileSync(lastCleanupTimestampPath, 'utf8'));
 
         if (Date.now() - lastCleanupTimestamp < CLEANUP_INTERVAL_MS) {
