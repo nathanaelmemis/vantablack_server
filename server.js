@@ -239,6 +239,7 @@ app.get('/cleanup_database', async (req, res) => {
         utils.apiLog(req, `Firebase responded with: ${typeof allData}`)
 
         if (allData === null) {
+            r.success(res)
             return
         }
 
