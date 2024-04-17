@@ -253,8 +253,6 @@ app.get('/cleanup_database', async (req, res) => {
             }
         }
 
-        fs.writeFileSync(lastCleanupTimestampPath, Date.now().toString());
-
         r.success(res)
     } catch (error) {
         utils.apiLog(req, `Error occured while attempting database cleanup: ${error}`)
