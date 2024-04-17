@@ -26,8 +26,6 @@ if (process.env.NODE_ENV === 'production') {
     serviceAccount['private_key'] = require("./vantablack-b23fc-firebase-adminsdk-yfzjw-42c5677f6f.json").private_key;
 }
 
-console.log(serviceAccount)
-
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
     databaseURL: "https://vantablack-b23fc-default-rtdb.firebaseio.com/"
@@ -43,7 +41,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.get('/', (req, res) => {
-    res.send('meow')
+    res.send('This is the server for <a href=https://m3ow23.github.io/vantablack>Vantablack</a>.')
 })
 
 /**
