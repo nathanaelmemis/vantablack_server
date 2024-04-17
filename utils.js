@@ -1,10 +1,7 @@
 const CryptoJS = require("crypto-js")
-const fs = require('fs');
-const path = require("path");
 
 const DARK_ROOM_CODE_HASH_LENGTH = 64
 const CHARACTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-const CLEANUP_INTERVAL_MS = 2592000000 // 30 days
 
 function isCleanCode(darkRoomCode) {
     // check if length is correct
@@ -112,45 +109,6 @@ function apiLog(req, msg) {
     console.log(`[${req.path}]`, msg)
 }
 
-/**
- * This function cleanups Firebase RTDB of expired dark rooms
- */
-async function cleanupDatabase(admin) {
-    try {
-        const lastCleanupTimestampPath = path.join(__dirname, '/.vantablack_server_last_cleanup_timestamp')
-        const lastCleanupTimestamp = parseInt(fs.readFileSync(lastCleanupTimestampPath, 'utf8'));
-
-        if (Date.now() - lastCleanupTimestamp < CLEANUP_INTERVAL_MS) {
-            return
-        }
-
-        console.log('[cleanupDatabase]', 'Initiating database cleanup...')
-
-        const allData = (await admin.database().ref('/dark_rooms').once('value')).val();
-
-        console.log('[cleanupDatabase]', 'Firebase responded with:', typeof allData)
-        
-        if (allData === null) {
-            return
-        }
-
-        const darkRoomsRef = admin.database().ref('/dark_rooms');
-
-        for (const darkRoomCode in allData) {
-            const darkRoom = allData[darkRoomCode]
-            if ((darkRoom.timeToDestroy && darkRoom.timeToDestroy - Date.now() < 1000)
-                || Date.now() - darkRoom.lastActivityTimestamp > darkRoom.inactiveDaysLimit) {
-                darkRoomsRef.child(darkRoomCode).set(null)
-                console.log('[cleanupDatabase]', 'Destroyed dark room:', darkRoomCode)
-            }
-        }
-
-        fs.writeFileSync(lastCleanupTimestampPath, Date.now().toString());
-    } catch (error) {
-        console.log('[cleanupDatabase]', 'Error occured while attempting database cleanup: ', error);
-    }
-}
-
 function hash(input, iteration = 1) {
     let hashedInput = input
     for (let i = 0; i < iteration; i++) {
@@ -166,7 +124,6 @@ module.exports = {
     parseDayToMiliseconds: parseDayToMiliseconds,
     destroyDarkRoom: destroyDarkRoom,
     apiLog: apiLog,
-    cleanupDatabase: cleanupDatabase,
     hash: hash
 };
   

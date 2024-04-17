@@ -157,7 +157,7 @@ app.post('/create_room', async (req, res) => {
     }
 
     // call database cleanup function
-    utils.cleanupDatabase(admin)
+    // utils.cleanupDatabase(admin)
 })
 
 /**
@@ -227,6 +227,38 @@ app.post('/send_message', async (req, res) => {
         }
         
         r.invalidData(res)
+    }
+})
+
+app.get('/cleanup_database', async (req, res) => {
+    try {
+        utils.apiLog(req, 'Initiating database cleanup...')
+
+        const allData = (await admin.database().ref('/dark_rooms').once('value')).val();
+
+        utils.apiLog(req, `Firebase responded with: ${typeof allData}`)
+
+        if (allData === null) {
+            return
+        }
+
+        const darkRoomsRef = admin.database().ref('/dark_rooms');
+
+        for (const darkRoomCode in allData) {
+            const darkRoom = allData[darkRoomCode]
+            if ((darkRoom.timeToDestroy && darkRoom.timeToDestroy - Date.now() < 1000)
+                || Date.now() - darkRoom.lastActivityTimestamp > darkRoom.inactiveDaysLimit) {
+                darkRoomsRef.child(darkRoomCode).set(null)
+                utils.apiLog(req, `Destroyed dark room: ${darkRoomCode}`)
+            }
+        }
+
+        fs.writeFileSync(lastCleanupTimestampPath, Date.now().toString());
+
+        r.success(res)
+    } catch (error) {
+        utils.apiLog(req, `Error occured while attempting database cleanup: ${error}`)
+        r.internalServerErrorOccured(res)
     }
 })
 
