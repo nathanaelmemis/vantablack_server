@@ -117,7 +117,7 @@ function apiLog(req, msg) {
  */
 async function cleanupDatabase(admin) {
     try {
-        const lastCleanupTimestampPath = path.join(__dirname, '.vantablack_server_last_cleanup_timestamp')
+        const lastCleanupTimestampPath = path.join(__dirname, '/.vantablack_server_last_cleanup_timestamp')
         const lastCleanupTimestamp = parseInt(fs.readFileSync(lastCleanupTimestampPath, 'utf8'));
 
         if (Date.now() - lastCleanupTimestamp < CLEANUP_INTERVAL_MS) {
