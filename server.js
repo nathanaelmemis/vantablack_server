@@ -173,7 +173,7 @@ app.post('/destroy_room', async (req, res) => {
 
         res.sendStatus(statusCode)
     } catch (error) {
-        utils.apiLog(req, `Error creating dark room: ${error}`)
+        utils.apiLog(req, `Error destroying dark room: ${error}`)
         r.internalServerErrorOccured(res)
     }
 })
