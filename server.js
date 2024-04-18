@@ -34,7 +34,7 @@ admin.initializeApp({
 const app = express()
 
 app.use(cors({
-    origin: 'https://m3ow23.github.io'
+    origin: 'https://nathanaelmemis.github.io'
 }));
 // app.use(cors())
 app.use(express.json());
