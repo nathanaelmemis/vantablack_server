@@ -41,7 +41,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.get('/', (req, res) => {
-    res.send('This is the server for <a href=https://m3ow23.github.io/vantablack>Vantablack</a>.')
+    res.send('This is the server for <a href=https://nathanaelmemis.github.io/vantablack/>Vantablack</a>.')
 })
 
 /**
