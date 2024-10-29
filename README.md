@@ -43,9 +43,9 @@ To run this project locally, follow these steps:
     - Place your generated Firebase Admin SDK private key JSON file under `server/` directory.
     - Copy all fields, except the `private_key` field, from the Firebase Admin SDK JSON file to the serviceAccount variable in `server/server.js`. 
     - This leaves your Firebase Admin SDK private key JSON file as such:
-    ```
+        ```
         {"private_key":"your_private_key"}
-    ```
+        ```
 5. **Start the development server:**
     ```
     npm run dev
