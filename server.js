@@ -6,6 +6,7 @@ const utils = require("./utils.js")
 
 console.log('Initializing server...')
 
+let corsPolicy = cors()
 let serviceAccount = {
     type: "service_account",
     project_id: "vantablack-b23fc",
@@ -22,6 +23,9 @@ let serviceAccount = {
 console.log('Server is in', process.env.NODE_ENV)
 if (process.env.NODE_ENV === 'production') {
     serviceAccount['private_key'] = JSON.parse(process.env.PRIVATE_KEY).private_key
+    corsPolicy = cors({
+        origin: 'https://nathanaelmemis.github.io'
+    })
 } else {
     serviceAccount['private_key'] = require("./vantablack-b23fc-firebase-adminsdk-yfzjw-42c5677f6f.json").private_key;
 }
@@ -33,10 +37,7 @@ admin.initializeApp({
 
 const app = express()
 
-app.use(cors({
-    origin: 'https://nathanaelmemis.github.io'
-}));
-// app.use(cors())
+app.use(corsPolicy);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
